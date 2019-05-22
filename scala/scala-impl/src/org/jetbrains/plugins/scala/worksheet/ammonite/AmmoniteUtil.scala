@@ -272,22 +272,20 @@ object AmmoniteUtil {
     val name = ref.refName.stripPrefix("`").stripSuffix("`")
     val result = ArrayBuffer[String]()
 
+    val sdkScalaVersion = getScalaVersion(ref)
     var scalaVersion: Option[String] = None
 
-    name.split(':').foreach {
-      p => if (p.nonEmpty) {
-        if (p contains "_") {
-          p.split('_') match {
-            case Array(prefix, suffix@("2.10" | "2.11" | "2.12")) =>
-              scalaVersion = Option(suffix)
-              result += prefix
-            case _ => result += p
-          }
-        } else result += p
-      }
+    name.split("(?=(?!^):)(?<!:)|(?!:)(?<=:)") match {
+      case Array(group, ":", artifact, ":", version) if group.nonEmpty && artifact.nonEmpty && version.nonEmpty =>
+        val (fixedName, scalaVersion) = artifact.split('_') match {
+          case Array(prefix, suffix@("2.10" | "2.11" | "2.12")) => prefix -> Some(suffix)
+          case _ => artifact -> None
+        }
+        Some(LibInfo(group, fixedName, version, scalaVersion getOrElse sdkScalaVersion))
+      case Array(group, "::", artifact, ":", version) if group.nonEmpty && artifact.nonEmpty && version.nonEmpty =>
+        Some(LibInfo(group, artifact, version, sdkScalaVersion))
+      case _ => None
     }
-
-    if (result.length == 3) Some(LibInfo(result.head, result(1), result(2), scalaVersion getOrElse getScalaVersion(ref))) else None
   }
 
   def getDefaultCachePath: String = System.getProperty("user.home") + "/.ivy2/cache"
