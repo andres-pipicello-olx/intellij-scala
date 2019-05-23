@@ -270,20 +270,21 @@ object AmmoniteUtil {
 
   def extractLibInfo(ref: ScReference): Option[LibInfo] = {
     val name = ref.refName.stripPrefix("`").stripSuffix("`")
-    val result = ArrayBuffer[String]()
 
     val sdkScalaVersion = getScalaVersion(ref)
-    var scalaVersion: Option[String] = None
 
     name.split("(?=(?!^):)(?<!:)|(?!:)(?<=:)") match {
-      case Array(group, ":", artifact, ":", version) if group.nonEmpty && artifact.nonEmpty && version.nonEmpty =>
-        val (fixedName, scalaVersion) = artifact.split('_') match {
-          case Array(prefix, suffix@("2.10" | "2.11" | "2.12")) => prefix -> Some(suffix)
-          case _ => artifact -> None
+      case Array(group, dots, artifact, ":", version) if group.nonEmpty && artifact.nonEmpty && version.nonEmpty =>
+        val (fixedName, scalaVersion) = dots match {
+          case ":" =>
+            artifact.split('_') match {
+              case Array(prefix, suffix@("2.10" | "2.11" | "2.12")) => prefix -> Some(suffix)
+              case _ => artifact -> None
+            }
+          case "::" => artifact -> None
         }
+
         Some(LibInfo(group, fixedName, version, scalaVersion getOrElse sdkScalaVersion))
-      case Array(group, "::", artifact, ":", version) if group.nonEmpty && artifact.nonEmpty && version.nonEmpty =>
-        Some(LibInfo(group, artifact, version, sdkScalaVersion))
       case _ => None
     }
   }
